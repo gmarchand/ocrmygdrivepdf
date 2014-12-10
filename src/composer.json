@@ -1,0 +1,6 @@
+{
+    "minimum-stability": "dev",
+    "require": {
+        "google/apiclient": "1.0.*"
+    }
+}
