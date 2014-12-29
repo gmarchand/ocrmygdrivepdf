@@ -7,8 +7,15 @@
 
 require_once 'vendor/autoload.php';
 
+$logger = new \Monolog\Logger("log");
+$logger->pushHandler(new \Monolog\Handler\ErrorLogHandler());
+
+
+
+// Google Authentication
 $client = new Google_Client();
 
+$apiConfig['use_objects'] = true;
 
 $arguments = getopt("",array("gid:","gsecret:"));
 
@@ -68,30 +75,94 @@ if(!file_exists($filename)){
 }
 
 $client->setAccessToken($accessToken);
-$service = new Google_Service_Drive($client);
+
 
 
 // #### AUTH END
+// Search PDF to OCR
 
-$searchpdftoocr = "(mimeType = 'application/pdf') and (not properties has { key='ocrmypdf' and value='true' and visibility='PRIVATE' })";
+$tmpinputfname = "/tmp/ocrin_".date("Ymd_His").".pdf";
+$tmpoutputfname = "/tmp/ocrout_".date("Ymd_His").".pdf";
 
-$scanFolderId = null;
-// is SCAN folder exists
-    try {
-      $parameters = array();
-      //$parameters['maxResults'] = 2;
-      $parameters['q'] = $searchpdftoocr;
-      //$parameters['fields'] = "items(id,title)";
-      $files = $service->files->listFiles($parameters);
 
-      $result = $files->getItems();
-      $result = array_merge($result, $files->getItems());
-	    print_r($result);
-    } catch (Exception $e) {
-      error_log ("An error occurred: " . $e->getMessage());
-      exit(1);
+$searchpdftoocr = "('me' in owners) and (mimeType = 'application/pdf') and (not properties has { key='ocrmypdf' and value='true' and visibility='PUBLIC' })";
+$ocrparam = "-dcsv -l fra ".$tmpinputfname." ".$tmpoutputfname." 2>&1";
 
+$service = new Google_Service_Drive($client);
+
+// Search file to OCR
+$result = findFiles($service, $searchpdftoocr,1);
+
+// Save file to temp dir
+if (!is_array($result) or count($result) == 0) {
+  $logger->addInfo("No File to OCR, exit");
+  exit(0);
+}
+
+
+$file = $result[0];
+
+$logger->addInfo("File to OCR : ".$file->originalFilename);
+$content = downloadFile($service,$file->downloadUrl,$client);
+
+$handle = fopen($tmpinputfname, "w");
+fwrite($handle, $content);
+fclose($handle);
+$logger->addInfo("Downloaded File : ".$tmpinputfname);
+
+
+
+// Exec OCR
+$logger->addInfo("Begin OCR... ".$ocrparam);
+
+exec('../OCRmyPDF/OCRmyPDF.sh '.$ocrparam,$output,$retval);
+$logger->addInfo("OCR Output ", $output);
+$logger->addInfo("OCR return code : ".$retval);
+$logger->addInfo("End OCR : ".$tmpoutputfname);
+
+// Insert Property
+
+if($retval != 0) {
+  $logger->addInfo("OCR Error, exit");
+  exit(0);
+}
+
+$logger->addInfo("Upload new revision of file to Drive ");
+updateFile($service, $file->id, $tmpoutputfname, true) ;
+
+$logger->addInfo("Add Property to Drive ");
+insertProperty($service, $file->id, "ocrmypdf", "true", "PUBLIC");
+
+// Update file to Google Drive
+
+//unlink($tmpinputfname);
+//unlink($tmpoutputfname);
+/**
+* Download a file's content.
+*
+* @param Google_DriveService $service Drive API service instance.
+* @param File $file Drive File instance.
+* @return String The file's content if successful, null otherwise.
+*/
+function downloadFile($service, $downloadUrl,$client) {
+
+  if ($downloadUrl) {
+    $request = new Google_Http_Request($downloadUrl, 'GET', null, null);
+
+    $SignhttpRequest = $client->getAuth()->sign($request);
+    $httpRequest = $client->getIo()->makeRequest($SignhttpRequest);
+
+    if ($httpRequest->getResponseHttpCode() == 200) {
+      return $httpRequest->getResponseBody();
+    } else {
+      // An error occurred.
+      return null;
     }
+  } else {
+    // The file doesn't have any content stored on Drive.
+    return null;
+  }
+}
 
     /**
     * Insert a new custom file property.
@@ -102,11 +173,10 @@ $scanFolderId = null;
     * @param String $value Property value.
     * @param String $visibility 'PUBLIC' to make the property visible by all apps,
     *                           or 'PRIVATE' to make it only available to the app that created it.
-    * @return Google_Property The inserted property. NULL is returned if an API
-    error occurred.
+    * @return Google_Property The inserted property. NULL is returned if an API error occurred.
     */
     function insertProperty($service, $fileId, $key, $value, $visibility) {
-      $newProperty = new Google_Property();
+      $newProperty = new Google_Service_Drive_Property();
       $newProperty->setKey($key);
       $newProperty->setValue($value);
       $newProperty->setVisibility($visibility);
@@ -117,6 +187,63 @@ $scanFolderId = null;
       }
       return NULL;
     }
+
+    function findFiles($service, $query, $limit=10 ) {
+
+      try {
+        $parameters = array();
+        $parameters['maxResults'] = $limit;
+        $parameters['q'] = $query;
+        $files = $service->files->listFiles($parameters);
+
+        return $result = $files->getItems();
+
+        //return array_merge($result, $files->getItems());
+
+      } catch (Exception $e) {
+        error_log ("An error occurred: " . $e->getMessage());
+
+      }
+
+      return NULL;
+
+    }
+
+
+    /**
+    * Update an existing file's metadata and content.
+    *
+    * @param Google_DriveService $service Drive API service instance.
+    * @param string $fileId ID of the file to update.
+    * @param string $newTitle New title for the file.
+    * @param string $newDescription New description for the file.
+    * @param string $newMimeType New MIME type for the file.
+    * @param string $newFilename Filename of the new content to upload.
+    * @param bool $newRevision Whether or not to create a new revision for this file.
+    * @return Google_DriveFile The updated file. NULL is returned if an API error occurred.
+    */
+    function updateFile($service, $fileId, $newFileName, $newRevision) {
+      try {
+        // First retrieve the file from the API.
+        $file = $service->files->get($fileId);
+
+        // File's new content.
+        $data = file_get_contents($newFileName);
+
+        $additionalParams = array(
+          'newRevision' => $newRevision,
+          'data' => $data,
+          'uploadType' => 'multipart',
+        );
+
+        // Send the request to the API.
+        $updatedFile = $service->files->update($fileId, $file, $additionalParams);
+        return $updatedFile;
+      } catch (Exception $e) {
+        print "An error occurred: " . $e->getMessage();
+      }
+    }
+
 /*
 // Insert File
 $file = new Google_Service_Drive_DriveFile();
