@@ -83,10 +83,14 @@ $client->setAccessToken($accessToken);
 
 $tmpinputfname = "/tmp/ocrin_".date("Ymd_His").".pdf";
 $tmpoutputfname = "/tmp/ocrout_".date("Ymd_His").".pdf";
-
+$lockfile = "/tmp/lock.txt";
 
 $searchpdftoocr = "('me' in owners) and (mimeType = 'application/pdf') and (not properties has { key='ocrmypdf' and value='true' and visibility='PUBLIC' })";
 $ocrparam = "-dcsv -l fra ".$tmpinputfname." ".$tmpoutputfname." 2>&1";
+
+// Lock File directly manage by Unix
+//  /usr/bin/flock -n /tmp/ocr.lockfile /usr/local/bin/frequent_cron_job --minutely
+
 
 $service = new Google_Service_Drive($client);
 
@@ -123,20 +127,32 @@ $logger->addInfo("End OCR : ".$tmpoutputfname);
 // Insert Property
 
 if($retval != 0) {
-  $logger->addInfo("OCR Error, exit");
+  $logger->addError("OCR Error, exit");
   exit(0);
 }
 
+// Update file to Google Drive
 $logger->addInfo("Upload new revision of file to Drive ");
-updateFile($service, $file->id, $tmpoutputfname, true) ;
+$retupdate = updateFile($service, $file->id, $tmpoutputfname, true) ;
+
+if($retupdate == NULL) {
+  $logger->addError("Update Google Drive File Content Error, exit");
+  exit(0);
+}
 
 $logger->addInfo("Add Property to Drive ");
-insertProperty($service, $file->id, "ocrmypdf", "true", "PUBLIC");
+$retprop = insertProperty($service, $file->id, "ocrmypdf", "true", "PUBLIC");
+if($retprop == NULL) {
+  $logger->addError("Update Google Drive File Property  Error, exit");
+  exit(0);
+}
 
-// Update file to Google Drive
 
-//unlink($tmpinputfname);
-//unlink($tmpoutputfname);
+unlink($tmpinputfname);
+unlink($tmpoutputfname);
+
+
+
 /**
 * Download a file's content.
 *
@@ -244,38 +260,4 @@ function downloadFile($service, $downloadUrl,$client) {
       }
     }
 
-/*
-// Insert File
-$file = new Google_Service_Drive_DriveFile();
-
-$file->setTitle('piscan_document_'.date("Y-m-d_His").'.pdf');
-$file->setDescription('Scan Document '. date("Y-m-d H:i:s"));
-$file->setMimeType('application/pdf');
-
-// Set the parent folder : SCAN folder
-if ($scanFolderId != null) {
-    $parent = new Google_Service_Drive_ParentReference();
-    $parent->setId($scanFolderId);
-    $file->setParents(array($parent));
-}
-$data = file_get_contents($filein);
-try {
-    // Post File
-    $createdFile = $service->files->insert($file, array(
-            'convert' => false,
-            'ocr' => false,
-            'ocrLanguage' => 'fr',
-            'useContentAsIndexableText' => false,
-            'data' => $data,
-            'mimeType' => 'application/pdf',
-            'uploadType'=>'multipart'
-        ));
-    file_put_contents($filename,$accessToken);
-    echo ( "Document uploaded to Google Drive");
-    exit(0);
-} catch (Google_ServiceException $e) {
-    error_log('Exception Message : '.  $e->getMessage());
-    exit(1);
-}
-*/
 ?>
