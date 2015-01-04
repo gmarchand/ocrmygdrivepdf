@@ -26,9 +26,6 @@ class ocrtodrivecli extends CLI{
     $searchpdftoocr = "('me' in owners) and (mimeType = 'application/pdf') and (not properties has { key='ocrmypdf' and value='true' and visibility='PUBLIC' })";
     $ocrparam = "-dcsv -l fra ".$tmpinputfname." ".$tmpoutputfname." 2>&1";
 
-    // Lock File directly manage by Unix
-    //  /usr/bin/flock -n /tmp/ocr.lockfile /usr/local/bin/frequent_cron_job --minutely
-
     $gdrive = new Google_Drive_Helper($this->gid, $this->gsecret);
 
     // Search file to OCR
@@ -66,7 +63,7 @@ class ocrtodrivecli extends CLI{
 
     // Update file to Google Drive
     $this->logger->addInfo("Upload new revision of file to Drive ");
-    //$retupdate = $gdrive->updateFile( $file->id, $tmpoutputfname, true) ;
+    $retupdate = $gdrive->updateFile( $file->id, $tmpoutputfname, true) ;
 
     if($retupdate == NULL) {
       $this->logger->addError("Update Google Drive File Content Error, exit");
@@ -74,14 +71,14 @@ class ocrtodrivecli extends CLI{
     }
 
     $this->logger->addInfo("Add Property to Drive ");
-    //$retprop = $gdrive->insertProperty( $file->id, "ocrmypdf", "true", "PUBLIC");
+    $retprop = $gdrive->insertProperty( $file->id, "ocrmypdf", "true", "PUBLIC");
     if($retprop == NULL) {
       $this->logger->addError("Update Google Drive File Property  Error, exit");
       exit(0);
     }
 
-    //unlink($tmpinputfname);
-    //unlink($tmpoutputfname);
+    unlink($tmpinputfname);
+    unlink($tmpoutputfname);
 
   }
 
