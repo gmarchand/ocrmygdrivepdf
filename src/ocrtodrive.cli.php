@@ -51,7 +51,7 @@ class ocrtodrivecli extends CLI{
     // Exec OCR
     $this->logger->addInfo("Begin OCR... ".$ocrparam);
 
-    exec('../OCRmyPDF/OCRmyPDF.sh '.$ocrparam,$output,$retval);
+    exec(dirname(__FILE__).'/../OCRmyPDF/OCRmyPDF.sh '.$ocrparam,$output,$retval);
     $this->logger->addInfo("OCR Output ", $output);
     $this->logger->addInfo("OCR return code : ".$retval);
     $this->logger->addInfo("End OCR : ".$tmpoutputfname);
