@@ -83,6 +83,7 @@ Class Google_Drive_Helper {
   * @return String The file's content if successful, null otherwise.
   */
   function downloadFile($downloadUrl) {
+    $this->logger->addInfo("File begins to download");
 
     if ($downloadUrl) {
       $request = new Google_Http_Request($downloadUrl, 'GET', null, null);
@@ -114,6 +115,7 @@ Class Google_Drive_Helper {
   * @return Google_Property The inserted property. NULL is returned if an API error occurred.
   */
   function insertProperty($fileId, $key, $value, $visibility) {
+    $this->logger->addInfo("Add Property $key:$value to Drive ");
     $newProperty = new Google_Service_Drive_Property();
     $newProperty->setKey($key);
     $newProperty->setValue($value);
@@ -167,7 +169,7 @@ Class Google_Drive_Helper {
       $additionalParams = array(
       'newRevision' => $newRevision,
       'data' => $data,
-      'uploadType' => 'multipart',
+      'uploadType' => 'resumable',
       );
 
       // Send the request to the API.
@@ -177,5 +179,8 @@ Class Google_Drive_Helper {
       $this->logger->addError("An error occurred: " . $e->getMessage());
     }
   }
+
+
+
 
 }

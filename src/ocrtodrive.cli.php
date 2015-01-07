@@ -8,7 +8,7 @@ class ocrtodrivecli extends CLI{
 
   private $gid = "";
   private $gsecret = "";
-
+  private $maxsize = 0;
   private $logger = null;
 
 
@@ -23,8 +23,18 @@ class ocrtodrivecli extends CLI{
   public function main(){
     $tmpinputfname = "/tmp/ocrin_".date("Ymd_His").".pdf";
     $tmpoutputfname = "/tmp/ocrout_".date("Ymd_His").".pdf";
-    $searchpdftoocr = "('me' in owners) and (mimeType = 'application/pdf') and (not properties has { key='ocrmypdf' and value='true' and visibility='PUBLIC' })";
+
+    $searchpdftoocr = "('me' in owners) and (mimeType = 'application/pdf')";
+    $searchpdftoocr .= " and (trashed=false)";
+    $searchpdftoocr .= " and (not properties has { key='ocrmypdf' and value='true' and visibility='PUBLIC' })";
+    $searchpdftoocr .= " and (not properties has { key='ocrmypdf' and value='maxsize' and visibility='PUBLIC' })";
+    $searchpdftoocr .= " and (not properties has { key='ocrmypdf' and value='error' and visibility='PUBLIC' })";
+
     $ocrparam = "-dcsv -l fra ".$tmpinputfname." ".$tmpoutputfname." 2>&1";
+
+
+    // Delete old temp files
+    array_map('unlink', glob("/tmp/ocr*.pdf"));
 
     $gdrive = new Google_Drive_Helper($this->gid, $this->gsecret);
 
@@ -39,8 +49,19 @@ class ocrtodrivecli extends CLI{
 
     $file = $result[0];
 
-    $this->logger->addInfo("File to OCR : ".$file->originalFilename." (Size : ".$file->fileSize.")");
+    $this->logger->addInfo("File to OCR : ".$file->originalFilename." (id : $file->id)(Size : ".$file->fileSize.")");
 
+    // If Filesize > maxfile, do nothing. Add property ocrmypdf = maxsize
+    if($file->fileSize > $this->maxsize) {
+      $this->logger->addInfo("File is too big. No OCR will be done. Max = ".$this->maxsize);
+      $retprop = $gdrive->insertProperty( $file->id, "ocrmypdf", "maxsize", "PUBLIC");
+      if($retprop == NULL) {
+
+        $this->logger->addError("Update Google Drive File Property  Error, exit");
+        exit(0);
+      }
+      exit(0);
+    }
     $content = $gdrive->downloadFile($file->downloadUrl);
 
     $handle = fopen($tmpinputfname, "w");
@@ -54,10 +75,11 @@ class ocrtodrivecli extends CLI{
     exec(dirname(__FILE__).'/../OCRmyPDF/OCRmyPDF.sh '.$ocrparam,$output,$retval);
     $this->logger->addInfo("OCR Output ", $output);
     $this->logger->addInfo("OCR return code : ".$retval);
-    $this->logger->addInfo("End OCR : ".$tmpoutputfname);
+    $this->logger->addInfo("Result Filename : ".$tmpoutputfname);
 
     if($retval != 0) {
-      $this->logger->addError("OCR Error, exit");
+      $this->logger->addError("OCR can't make the job, we exclude this file $file->originalFilename");
+      $retprop = $gdrive->insertProperty( $file->id, "ocrmypdf", "error", "PUBLIC");
       exit(0);
     }
 
@@ -70,15 +92,14 @@ class ocrtodrivecli extends CLI{
       exit(0);
     }
 
-    $this->logger->addInfo("Add Property to Drive ");
+
     $retprop = $gdrive->insertProperty( $file->id, "ocrmypdf", "true", "PUBLIC");
     if($retprop == NULL) {
       $this->logger->addError("Update Google Drive File Property  Error, exit");
       exit(0);
     }
 
-    unlink($tmpinputfname);
-    unlink($tmpoutputfname);
+
 
   }
 
@@ -98,6 +119,15 @@ class ocrtodrivecli extends CLI{
     }
 
     $this->gsecret = $opt;
+
+  }
+
+  public function option_maxsize($opt = null){
+    if($opt == 'help'){
+      return 'Max Size (octet) of PDF to OCR, else do nothing';
+    }
+
+    $this->maxsize = $opt;
 
   }
 }
