@@ -64,6 +64,11 @@ class ocrtodrivecli extends CLI{
     }
     $content = $gdrive->downloadFile($file->downloadUrl);
 
+    if($content == null) {
+      $this->logger->addError("Not possible to download file, exit");
+      exit(0);
+    }
+    
     $handle = fopen($tmpinputfname, "w");
     fwrite($handle, $content);
     fclose($handle);
