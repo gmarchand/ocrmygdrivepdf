@@ -1,9 +1,9 @@
 [submodule "OCRmyPDF"]
 	path = OCRmyPDF
 	url = git://github.com/gmarchand/OCRmyPDF
-[submodule "src/lib/cli-framework"]
-	path = src/lib/cli-framework
+[submodule "src/cli-framework"]
+	path = src/cli-framework
 	url = git@github.com:etopian/php-cli-framework.git
-[submodule "src/lib/helper"]
-	path = src/lib/helper
+[submodule "src/lib/help"]
+	path = src/helper
 	url = git@gist.github.com:/2e779876637acb1b9102.git
