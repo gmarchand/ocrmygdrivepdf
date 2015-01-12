@@ -2,7 +2,7 @@
 <?php
 require_once 'vendor/autoload.php';
 require_once 'cli-framework/cli.php';
-require_once 'googledrivehelper.class.php';
+require_once 'lib/helper/googledrivehelper.class.php';
 
 class ocrtodrivecli extends CLI{
 
@@ -68,7 +68,7 @@ class ocrtodrivecli extends CLI{
       $this->logger->addError("Not possible to download file, exit");
       exit(0);
     }
-    
+
     $handle = fopen($tmpinputfname, "w");
     fwrite($handle, $content);
     fclose($handle);
