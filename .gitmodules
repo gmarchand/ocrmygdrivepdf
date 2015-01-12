@@ -1,5 +1,5 @@
 [submodule "OCRmyPDF"]
-	path = OCRmyPDF
+	path = src/OCRmyPDF
 	url = git://github.com/gmarchand/OCRmyPDF
 [submodule "src/cli-framework"]
 	path = src/cli-framework
