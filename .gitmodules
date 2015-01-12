@@ -4,6 +4,6 @@
 [submodule "src/cli-framework"]
 	path = src/cli-framework
 	url = git@github.com:etopian/php-cli-framework.git
-[submodule "src/lib/help"]
-	path = src/lib/help
+[submodule "src/lib/helper"]
+	path = src/lib/helper
 	url = git@gist.github.com:/2e779876637acb1b9102.git
