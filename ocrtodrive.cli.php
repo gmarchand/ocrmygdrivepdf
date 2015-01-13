@@ -1,8 +1,8 @@
 
 <?php
-require_once 'vendor/autoload.php';
-require_once 'cli-framework/cli.php';
-require_once 'lib/helper/googledrivehelper.class.php';
+require_once 'src/vendor/autoload.php';
+require_once 'src/cli-framework/cli.php';
+require_once 'src/helper/googledrivehelper.class.php';
 
 class ocrtodrivecli extends CLI{
 
@@ -77,7 +77,7 @@ class ocrtodrivecli extends CLI{
     // Exec OCR
     $this->logger->addInfo("Begin OCR... ".$ocrparam);
 
-    exec(dirname(__FILE__).'/../OCRmyPDF/OCRmyPDF.sh '.$ocrparam,$output,$retval);
+    exec(dirname(__FILE__).'/src/OCRmyPDF/OCRmyPDF.sh '.$ocrparam,$output,$retval);
     $this->logger->addInfo("OCR Output ", $output);
     $this->logger->addInfo("OCR return code : ".$retval);
     $this->logger->addInfo("Result Filename : ".$tmpoutputfname);
