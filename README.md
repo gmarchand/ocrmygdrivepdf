@@ -7,21 +7,41 @@ This project uses https://github.com/fritz-hh/OCRmyPDF to make the OCR of PDF.
 
 ## Install
 
-1. Package
+### Package
+Install java php-cli tesseract and all package from  https://github.com/fritz-hh/OCRmyPDF
 
-Install java php-cli tesseract and https://github.com/fritz-hh/OCRmyPDF prerequis
+### Composer
+Install PHP Composer https://getcomposer.org/download/ in src
 
-1. Composer
-
+```
 curl -sS https://getcomposer.org/installer | php
 php composer.phar install
+```
 
-1. Init
-You have to launch manually ocrtodrive.cli.php to initiate the autorization with Google API
+## Init
 
-2. Cronjob
+In Google API Console https://code.google.com/apis/console/ :
+* Create a project with an OAuth2 Service Account for Server to Server applications https://developers.google.com/accounts/docs/OAuth2ServiceAccount
+* Activate `Drive Api` and `Drive SDK`
 
-To not launch twice the same job, we use flock
 
-Put this script in your crontab
-`*/3 * * * *	gmarchand	/usr/bin/flock -n /tmp/ocr.lockfile /usr/bin/php /home/gmarchand/projet/ocrmygdrivepdf/src/ocrtodrive.cli.php --gid=XXXX --gsecret=YYYYY --maxsize=10485760 2>&1 | /usr/bin/logger -t ocr
+
+You have to launch manually /ocrtodrive.cli.php to initiate the autorization with Google API
+
+## Run
+To not launch twice the same job, we use `flock`
+
+Put this command line in your crontab
+
+```
+*/3 * * * *	<user>	/usr/bin/flock -n /tmp/ocr.lockfile /usr/bin/php /<path>/ocrmygdrivepdf/src/ocrtodrive.cli.php --gid=XXXX --gsecret=YYYYY --maxsize=10485760 2>&1 | /usr/bin/logger -t ocr
+```
+Change `gid` by Google API Client ID and `gsecret`by Google API Client Secret, you can find theses keys in Google API Console  https://code.google.com/apis/console/
+
+
+## Help
+
+You can have help with this command line
+> ocrtodrive.cli.php -h
+
+You can have logs into your syslog
